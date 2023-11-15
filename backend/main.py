@@ -17,6 +17,7 @@ from httpx import AsyncClient, Timeout
 from typing import Optional, Union
 from fastapi.openapi.utils import get_openapi
 from fastapi.openapi.docs import get_swagger_ui_html
+
 load_dotenv()
 
 
@@ -43,8 +44,6 @@ class FightData(BaseModel):
 
 app = FastAPI()
 # Connect to your Redis instance
-r = redis.Redis(host='localhost', port=6379, db=0)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,20 +69,14 @@ router.add_route("/docs", get_swagger_ui_html,
 app.include_router(router)
 
 
-async def get_redis() -> Redis:
-    client = Redis(
-        host=os.getenv('HOST'),
-        port=os.getenv('PORT'),
-        password=os.getenv('PASSWORD')
-    )
-    await client.ping()
-    return client
-
-
 @app.middleware("http")
 async def set_persistent_cookie(request: Request, call_next):
     response = await call_next(request)
-    redis_client = await get_redis()
+    redis_client = redis.Redis(
+        host=os.getenv('HOST'),
+        port=11879,
+        password=os.getenv('REDISPASS')
+    )
     user_id = request.cookies.get("user_id")
 
     # Check if the user already has a specific cookie
@@ -98,7 +91,8 @@ async def set_persistent_cookie(request: Request, call_next):
         await redis_client.hset(unique_id, mapping={"last_updated": str(datetime.utcnow()), "balance": 10000})
     else:
         # Check if it's time to update the balance
-        last_updated = datetime.strptime((await redis_client.hget(user_id, "last_updated")).decode('utf-8'), '%Y-%m-%d %H:%M:%S.%f')
+        last_updated = datetime.strptime((redis_client.hget(
+            user_id, "last_updated")).decode('utf-8'), '%Y-%m-%d %H:%M:%S.%f')
         if (datetime.utcnow() - last_updated) >= timedelta(days=7):
             new_balance = int((await redis_client.hget(user_id, "balance")).decode('utf-8')) + 10000
             await redis_client.hset(user_id, mapping={"last_updated": str(datetime.utcnow()), "balance": new_balance})
@@ -123,10 +117,13 @@ class FighterName(BaseModel):
 @app.get("/balance", include_in_schema=False)
 async def get_balance(request: Request):
     user_id = request.cookies.get("user_id")
-    redis_client = await get_redis()
-
+    redis_client = redis.Redis(
+        host=os.getenv('HOST'),
+        port=11879,
+        password=os.getenv('REDISPASS')
+    )
     if user_id:
-        balance = (await redis_client.hget(user_id, "balance")).decode('utf-8')
+        balance = (redis_client.hget(user_id, "balance")).decode('utf-8')
         return {"balance": balance}
     return {"balance": "Unknown User"}
 
