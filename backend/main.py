@@ -19,6 +19,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 
 load_dotenv()
 
+
 class FighterStats(BaseModel):
     name: str
     bouts_fought: int
@@ -43,7 +44,7 @@ class FightData(BaseModel):
 app = FastAPI(
     title="BoxingData",
     description="Send the name of a boxer and get their stats. This is based on data last updated in November 2019. The next update will be on the 19th of November 2023",
-    summary="Retrieve boxer stats"
+    summary="Retrieve boxer stats",
     version="0.0.1",
     contact={
         "name": "Emmanuel Sibanda",
@@ -52,7 +53,6 @@ app = FastAPI(
 
     }
 )
-
 
 
 # Connect to your Redis instance
@@ -72,21 +72,8 @@ data = pd.read_csv(url)
 router = APIRouter()
 
 
-
-async def openapi_json():
-
-    return JSONResponse(
-        content=get_openapi(
-            title="Boxing Data",
-            version="1.0.0",
-            routes=app.routes,
-        )
-    )
-
 router.add_route("/docs", get_swagger_ui_html,
                  include_in_schema=False, name="swagger-ui")
-
-router.add_route("/openapi.json", openapi_json, include_in_schema=False)
 
 
 app.include_router(router)
