@@ -8,7 +8,6 @@ from joblib import load
 from datetime import datetime, timedelta
 import uuid
 from dotenv import load_dotenv
-from redis.asyncio import Redis
 import os
 import redis
 from fastapi.encoders import jsonable_encoder
@@ -89,6 +88,9 @@ async def openapi_json():
 
 router.add_route("/docs", get_swagger_ui_html,
                  include_in_schema=False, name="swagger-ui")
+
+router.add_route("/openapi.json", openapi_json, include_in_schema=False)
+
 
 app.include_router(router)
 
