@@ -20,6 +20,16 @@ from fastapi.openapi.docs import get_swagger_ui_html
 
 load_dotenv()
 
+servers = [
+    {"url": "https://boxingdata.onrender.com",
+        "description": "Send the name of a boxer and get their stats. This is based on data last updated in November 2019. The next update will be on the 19th of November 2023."}
+]
+
+contact_info = {
+    "name": "Emmanuel Sibanda",
+    "email": "emmanuelsibandaus@gmail.com"
+}
+
 
 class FighterStats(BaseModel):
     name: str
@@ -61,7 +71,21 @@ router = APIRouter()
 
 
 async def openapi_json():
-    return JSONResponse(content=get_openapi(title="Boxing Data", version="1.0.0", routes=app.routes))
+    global_tags = [
+        {"name": "Fighter Stats", "description": "Operations related to fighter statistics"}
+        # Add more tags if needed
+    ]
+
+    return JSONResponse(
+        content=get_openapi(
+            title="Boxing Data",
+            version="1.0.0",
+            routes=app.routes,
+            servers=servers,
+            tags=global_tags,
+            contact_info=contact_info,
+        )
+    )
 
 router.add_route("/docs", get_swagger_ui_html,
                  include_in_schema=False, name="swagger-ui")

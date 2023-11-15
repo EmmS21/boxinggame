@@ -1,11 +1,12 @@
 {
-  "sdkName": "test-sdk",
-  "specFilePath": "https://petstore.swagger.io/v2/swagger.json",
+  "sdkName": "BoxingData",
+  "baseUrl": "https://boxingdata.onrender.com",
+  "specFilePath": "https://boxingdata.onrender.com/openapi.json",
   "languages": [
     "python",
     "typescript"
   ],
-  "createDocs": false,
+  "createDocs": true,
   "auth": [
     "bearer"
   ],
