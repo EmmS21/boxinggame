@@ -88,14 +88,17 @@ async def set_persistent_cookie(request: Request, call_next):
         unique_id = str(uuid.uuid4())  # Generate a unique ID for the user
         response.set_cookie(key="user_id", value=unique_id,
                             expires=formatted_expiry_date, httponly=True, secure=True, samesite='None')
-        await redis_client.hset(unique_id, mapping={"last_updated": str(datetime.utcnow()), "balance": 10000})
+        redis_client.hset(unique_id, mapping={"last_updated": str(
+            datetime.utcnow()), "balance": 10000})
     else:
         # Check if it's time to update the balance
         last_updated = datetime.strptime((redis_client.hget(
             user_id, "last_updated")).decode('utf-8'), '%Y-%m-%d %H:%M:%S.%f')
         if (datetime.utcnow() - last_updated) >= timedelta(days=7):
-            new_balance = int((await redis_client.hget(user_id, "balance")).decode('utf-8')) + 10000
-            await redis_client.hset(user_id, mapping={"last_updated": str(datetime.utcnow()), "balance": new_balance})
+            new_balance = int(
+                (redis_client.hget(user_id, "balance")).decode('utf-8')) + 10000
+            redis_client.hset(user_id, mapping={"last_updated": str(
+                datetime.utcnow()), "balance": new_balance})
     return response
 
 
