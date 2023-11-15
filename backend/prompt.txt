@@ -1,0 +1,36 @@
+These two fighters are fighting a boxing match. This is 10 round fight:
+
+Use the information sent to determine the winner, and the favorite. Make reference to who the favorite is during the course of the fight.
+Context:
+- The paragraph must be detailed, walking through the punches thrown, footwork shown, defense. 
+- At the end of each half include statistics regarding the half (punches landed, power shots landed, punches blocked, punches thrown from both fighters) detailed round by round. 
+- Include details regarding any injuries either fighter picks up and their condition.
+- Detail how their performance stacks up to how they typically perform. 
+- Take the one of a very knowledgeable boxing commentator, this means you must talk about technical things that happen in boxing
+
+
+Things to include:
+- include the announcement of the winner. Stop the fight when this happens. Make this announcement under the heading; "Outcome"
+
+Format:
+- Return the commentary under ONLY 2 headers; First Half (first 5 rounds) and Second Half (last 5 rounds)
+- There should be a third header with the overall fight outcome
+- Each half while the fight continues must have at most 10 lines of commentary
+- Inlcude fight statistics after each half. The statistics should be about each round in the half
+
+
+Here is example of what I expect in terms of header:
+
+First Half:
+[details] - this should be at most 10 lines
+
+First Half Stats:
+[stats for each round]
+
+Second Half:
+[details] - should be at most 10 lines
+
+Second Half Stats:
+[stats for each round]
+
+Outcome:

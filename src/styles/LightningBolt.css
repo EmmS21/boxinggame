@@ -1,0 +1,56 @@
+@keyframes slideDown {
+  0% {
+    transform: translateY(-100%); /* Start above the visible area */
+    opacity: 0; /* Start faded out */
+  }
+  10%,
+  100% {
+    opacity: 1; /* Fully visible during and after the slide down */
+    transform: translateY(0); /* End at the original position */
+  }
+}
+
+.lightning-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Space out the names */
+  align-items: center; /* Center names and lightning bolt */
+  height: 100%; /* Adjust to modal size */
+}
+
+.fighter-name {
+  z-index: 1; /* Ensure names are above the lightning bolt */
+}
+
+.lightning {
+  position: absolute;
+  top: 0;
+  left: 50%; /* Center the lightning */
+  height: 100%;
+  width: 5px; /* Width of the lightning bolt */
+  background: yellow; /* Color of the lightning bolt */
+  animation: slideDown 2s ease-out forwards; /* Adjust timing as desired */
+  clip-path: polygon(
+    50% 0%,
+    60% 20%,
+    50% 40%,
+    70% 60%,
+    50% 80%,
+    60% 100%,
+    40% 100%,
+    50% 80%,
+    30% 60%,
+    50% 40%,
+    40% 20%
+  );
+}
+
+/* Ensure the names are spaced correctly so the lightning slides between them */
+.fighter-name:first-child {
+  margin-bottom: auto; /* Pushes the first name to the top */
+}
+
+.fighter-name:last-child {
+  margin-top: auto; /* Pushes the second name to the bottom */
+}

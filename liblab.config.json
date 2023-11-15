@@ -1,0 +1,54 @@
+{
+  "sdkName": "test-sdk",
+  "specFilePath": "https://petstore.swagger.io/v2/swagger.json",
+  "languages": [
+    "python",
+    "typescript"
+  ],
+  "createDocs": false,
+  "auth": [
+    "bearer"
+  ],
+  "customizations": {
+    "authentication": {
+      "access": {
+        "prefix": "Bearer"
+      }
+    },
+    "generateEnv": true,
+    "devContainer": true,
+    "license": {
+      "type": "MIT"
+    },
+    "retry": {
+      "enabled": true,
+      "retryDelay": 150,
+      "maxAttempts": 3
+    },
+    "injectedModels": [],
+    "inferServiceNames": false,
+    "responseHeaders": false
+  },
+  "languageOptions": {
+    "typescript": {
+      "npmName": "",
+      "npmOrg": "",
+      "httpClient": "axios",
+      "bundle": false,
+      "exportClassDefault": false,
+      "githubRepoName": "",
+      "sdkVersion": "1.0.0",
+      "ignoreFiles": []
+    },
+    "python": {
+      "pypiPackageName": "",
+      "alwaysInitializeOptionals": false,
+      "githubRepoName": "",
+      "sdkVersion": "1.0.0",
+      "ignoreFiles": []
+    }
+  },
+  "publishing": {
+    "githubOrg": ""
+  }
+}
