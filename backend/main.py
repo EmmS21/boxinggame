@@ -19,6 +19,23 @@ from fastapi.openapi.docs import get_swagger_ui_html
 
 load_dotenv()
 
+description = """
+BoxingData API. Retrieve stats on boxers by simple sending their full name🚀
+
+## Fighter Stats
+
+Send a valid boxer's full name and receive statistics pertaining to this boxer
+
+Data was last updated in November 2019. Next update 19 November 2023
+"""
+
+tags_metadata = [
+    {
+        "name": "Fighter Stats",
+        "description": "Send a valid boxer's full name and receive statisitcs on boxer. Ensure you conform to the format laid out below.",
+    },
+]
+
 
 class FighterStats(BaseModel):
     name: str
@@ -41,17 +58,21 @@ class FightData(BaseModel):
     odds: Odds
 
 
+app = FastAPI(openapi_tags=tags_metadata)
 app = FastAPI(
     title="BoxingData",
-    description="Send the name of a boxer and get their stats. This is based on data last updated in November 2019. The next update will be on the 19th of November 2023",
+    description=description,
     summary="Retrieve boxer stats",
     version="0.0.1",
     contact={
         "name": "Emmanuel Sibanda",
         "url": "https://emmanuelsibanda.vercel.app/",
         "email": "emmanuelsibandaus@gmail.com"
-
-    }
+    },
+    servers=[
+        {"url": "https://boxingdata.onrender.com/"}
+    ],
+    openapi_tags=tags_metadata
 )
 
 
