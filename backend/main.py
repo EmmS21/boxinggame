@@ -19,17 +19,6 @@ from fastapi.openapi.docs import get_swagger_ui_html
 
 load_dotenv()
 
-servers = [
-    {"url": "https://boxingdata.onrender.com",
-        "description": "Send the name of a boxer and get their stats. This is based on data last updated in November 2019. The next update will be on the 19th of November 2023."}
-]
-
-contact_info = {
-    "name": "Emmanuel Sibanda",
-    "email": "emmanuelsibandaus@gmail.com"
-}
-
-
 class FighterStats(BaseModel):
     name: str
     bouts_fought: int
@@ -51,7 +40,21 @@ class FightData(BaseModel):
     odds: Odds
 
 
-app = FastAPI()
+app = FastAPI(
+    title="BoxingData",
+    description="Send the name of a boxer and get their stats. This is based on data last updated in November 2019. The next update will be on the 19th of November 2023",
+    summary="Retrieve boxer stats"
+    version="0.0.1",
+    contact={
+        "name": "Emmanuel Sibanda",
+        "url": "https://boxingdata.onrender.com",
+        "email": "emmanuelsibandaus@gmail.com"
+
+    }
+)
+
+
+
 # Connect to your Redis instance
 
 app.add_middleware(
@@ -69,20 +72,14 @@ data = pd.read_csv(url)
 router = APIRouter()
 
 
+
 async def openapi_json():
-    global_tags = [
-        {"name": "Fighter Stats", "description": "Operations related to fighter statistics"}
-        # Add more tags if needed
-    ]
 
     return JSONResponse(
         content=get_openapi(
             title="Boxing Data",
             version="1.0.0",
             routes=app.routes,
-            servers=servers,
-            tags=global_tags,
-            contact_info=contact_info,
         )
     )
 
