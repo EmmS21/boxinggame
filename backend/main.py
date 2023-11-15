@@ -48,7 +48,7 @@ app = FastAPI(
     version="0.0.1",
     contact={
         "name": "Emmanuel Sibanda",
-        "url": "https://boxingdata.onrender.com",
+        "url": "https://emmanuelsibanda.vercel.app/",
         "email": "emmanuelsibandaus@gmail.com"
 
     }
