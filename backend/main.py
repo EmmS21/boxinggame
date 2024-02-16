@@ -267,7 +267,7 @@ def format_percent(value):
         val = float(value)
         if val == float('inf') or val == float('-inf') or val != val: 
             logger.debug(f"Non-compliant float value encountered: {val}")
-            return "Invalid value"
+            return "0.00%"
         return f"{val:.2f}%"
     except (ValueError, TypeError):
         return "Missing Data"
