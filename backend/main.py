@@ -240,4 +240,10 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
 
 
 def format_percent(value):
-    return f"{float(value):.2f}%" if not pd.isna(value) else "Missing Data"
+    try:
+        val = float(value)
+        if val == float('inf') or val == float('-inf') or val != val:  # Checks for 'inf', '-inf', 'NaN'
+            return "Invalid value"
+        return f"{val:.2f}%"
+    except (ValueError, TypeError):
+        return "Missing Data"
