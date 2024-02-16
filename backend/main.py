@@ -1,21 +1,10 @@
-from fastapi import FastAPI, HTTPException, APIRouter, Body, Query
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Query, Request
 import pandas as pd
 import numpy as np
 # import random
-# from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-# import numpy as np
-from joblib import load
-# from datetime import datetime, timedelta
-# import uuid
 from dotenv import load_dotenv
-# import os
-# import redis
-# from fastapi.encoders import jsonable_encoder
-# from fastapi.responses import JSONResponse
-# from httpx import AsyncClient, Timeout
-from typing import Optional, Union
-# from fastapi.openapi.utils import get_openapi
+from typing import Optional, Union, Callable
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse
 from exceptions.custom_exceptions import (
@@ -30,12 +19,16 @@ from exceptions.exception_handlers import (
 )
 import logging
 import math
+from readme_metrics import MetricsApiConfig, Metrics
+import os
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("uvicorn")
 
 
 load_dotenv()
+API_KEY = os.getenv("API_KEY")
 
 description = """
 BoxingData API. Retrieve stats on boxers by simple sending their full name🚀
@@ -68,7 +61,6 @@ class Odds(BaseModel):
     win: float
     loss: float
     draw: float
-
 
 class FightData(BaseModel):
     fighter1: FighterStats
@@ -123,6 +115,16 @@ app.exception_handler(DataSourceNotFoundException)(data_source_not_found_excepti
 app.exception_handler(DataSourceEmptyOrCorruptException)(data_source_empty_or_corrupt_exception_handler)
 app.exception_handler(PageOutOfRangeException)(page_out_of_range_exception_handler)
 
+
+async def grouping_function(request: Request):
+    api_key = request.headers.get("Authorization")
+    if api_key:
+        return {
+            "api_key": API_KEY,
+            "label": f"API Key: {api_key}"
+        }
+    return None
+
 @app.get(
     "/get_all_fighter_stats",
     include_in_schema=True,
@@ -140,9 +142,7 @@ responses={
                             {
                                 "name": "Tyson Fury",
                                 "wins": 30,
-                                # Additional fighter stats...
                             }
-                            # Additional fighters...
                         ],
                     }
                 }
@@ -325,3 +325,12 @@ def format_percent(value):
         return f"{val:.2f}%"
     except (ValueError, TypeError):
         return "Missing Data"
+
+def grouping_function(request):
+    api_key = request.headers.get("Authorization")
+    if api_key:
+        return {
+            "api_key": api_key,
+            "label": f"API Key: {api_key}"
+        }
+    return None
