@@ -185,7 +185,7 @@ async def get_all_fighter_stats(page: int = Query(default=1, ge=1), limit: int =
     tags=["Fighter Stats"]
 )
 async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "Tyson Fury"})):
-    logger.info(f"Request received for fighter stats: {fighter['name']}")
+    logger.info(f"Request received for fighter stats: {fighter.name}")
     logger.info("Loading fighter data from CSV...")
     data = pd.read_csv(
         "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv")
