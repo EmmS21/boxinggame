@@ -1,21 +1,34 @@
-from fastapi import FastAPI, HTTPException, Request, APIRouter, Body
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Query
 import pandas as pd
-import random
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 import numpy as np
+# import random
+# from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+# import numpy as np
 from joblib import load
-from datetime import datetime, timedelta
-import uuid
+# from datetime import datetime, timedelta
+# import uuid
 from dotenv import load_dotenv
-import os
-import redis
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
-from httpx import AsyncClient, Timeout
+# import os
+# import redis
+# from fastapi.encoders import jsonable_encoder
+# from fastapi.responses import JSONResponse
+# from httpx import AsyncClient, Timeout
 from typing import Optional, Union
-from fastapi.openapi.utils import get_openapi
+# from fastapi.openapi.utils import get_openapi
 from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import JSONResponse
+from exceptions.custom_exceptions import (
+    DataSourceNotFoundException,
+    DataSourceEmptyOrCorruptException,
+    PageOutOfRangeException,
+)
+from exceptions.exception_handlers import (
+    data_source_not_found_exception_handler,
+    data_source_empty_or_corrupt_exception_handler,
+    page_out_of_range_exception_handler,
+)
+
 
 load_dotenv()
 
@@ -57,7 +70,6 @@ class FightData(BaseModel):
     fighter2: FighterStats
     odds: Odds
 
-
 app = FastAPI(openapi_tags=tags_metadata)
 app = FastAPI(
     title="BoxingData",
@@ -76,17 +88,6 @@ app = FastAPI(
 )
 
 
-# Connect to your Redis instance
-
-app.add_middleware(
-    CORSMiddleware,
-    # The origin(s) that should be allowed to access the server. Adjust as necessary.
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 url = "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/readdata.csv"
 data = pd.read_csv(url)
 
@@ -99,40 +100,6 @@ router.add_route("/docs", get_swagger_ui_html,
 
 app.include_router(router)
 
-
-@app.middleware("http")
-async def set_persistent_cookie(request: Request, call_next):
-    response = await call_next(request)
-    redis_client = redis.Redis(
-        host=os.getenv('HOST'),
-        port=11879,
-        password=os.getenv('REDISPASS')
-    )
-    user_id = request.cookies.get("user_id")
-
-    # Check if the user already has a specific cookie
-    if not user_id:
-        # Cookie does not exist, so set a new cookie
-        expiry_date = datetime.utcnow() + timedelta(days=14)  # Cookie expires in 14 days
-        formatted_expiry_date = expiry_date.strftime(
-            "%a, %d %b %Y %H:%M:%S GMT")  # Format according to HTTP date format
-        unique_id = str(uuid.uuid4())  # Generate a unique ID for the user
-        response.set_cookie(key="user_id", value=unique_id,
-                            expires=formatted_expiry_date, httponly=True, secure=True, samesite='None')
-        redis_client.hset(unique_id, mapping={"last_updated": str(
-            datetime.utcnow()), "balance": 10000})
-    else:
-        # Check if it's time to update the balance
-        last_updated = datetime.strptime((redis_client.hget(
-            user_id, "last_updated")).decode('utf-8'), '%Y-%m-%d %H:%M:%S.%f')
-        if (datetime.utcnow() - last_updated) >= timedelta(days=7):
-            new_balance = int(
-                (redis_client.hget(user_id, "balance")).decode('utf-8')) + 10000
-            redis_client.hset(user_id, mapping={"last_updated": str(
-                datetime.utcnow()), "balance": new_balance})
-    return response
-
-
 class FighterNames(BaseModel):
     fighter1: str
     fighter2: str
@@ -144,110 +111,55 @@ class FighterName(BaseModel):
         title="Fighter Name",
         description="The name of the fighter.",
         min_length=1,
-        pattern="^[a-zA-Z0-9 ]+$",  # Allow spaces in the name
+        pattern="^[a-zA-Z0-9 ]+$",  
     )
 
+app.exception_handler(DataSourceNotFoundException)(data_source_not_found_exception_handler)
+app.exception_handler(DataSourceEmptyOrCorruptException)(data_source_empty_or_corrupt_exception_handler)
+app.exception_handler(PageOutOfRangeException)(page_out_of_range_exception_handler)
 
-@app.get("/balance", include_in_schema=False)
-async def get_balance(request: Request):
-    user_id = request.cookies.get("user_id")
-    redis_client = redis.Redis(
-        host=os.getenv('HOST'),
-        port=11879,
-        password=os.getenv('REDISPASS')
-    )
-    if user_id:
-        balance = (redis_client.hget(user_id, "balance")).decode('utf-8')
-        return {"balance": balance}
-    return {"balance": "Unknown User"}
-
-
-@app.post("/start_fight", include_in_schema=False)
-async def start_fight(fight_data: FightData):
-    # Extract the necessary data from the fight_data
-    print('fighters', fight_data)
-    fighter1 = fight_data.fighter1
-    fighter2 = fight_data.fighter2
-    odds = fight_data.odds
-    prompt_text = f"Fighter 1: {fighter1}, Fighter 2: {fighter2}, Odds: {odds}"
+@app.get(
+    "/get_all_fighter_stats",
+    include_in_schema=True,
+    responses={200: {"description": "Return all fighters' stats"}},
+    description="Return all boxer stats as paginated results",
+    summary="Get All Boxer Stats",
+    response_model=list, 
+    tags=["Fighter Stats"]
+)
+async def get_all_fighter_stats(page: int = Query(default=1, ge=1), limit: int = Query(default=10, ge=1)):
     try:
-        with open('prompt.txt', 'r') as file:
-            prompt_from_file = file.read()
-            prompt_text += f"\n\n{prompt_from_file}"
-    except FileNotFoundError:
-        print("The file prompt.txt was not found.")
+        try:
+            data_url = "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv"
+            data = pd.read_csv(data_url)
+        except FileNotFoundError:
+            raise DataSourceNotFoundException("Data source not found.")
+        except pd.errors.EmptyDataError:
+            raise DataSourceEmptyOrCorruptException("Data source is empty or corrupt.")
+        
+        data.replace([np.nan, np.inf, -np.inf], None, inplace=True)
+        total_items = len(data)
+        total_pages = (total_items // limit) + (1 if total_items % limit > 0 else 0)
+
+        if page > total_pages:
+            raise PageOutOfRangeException("Page number out of range.")
+                
+        skip = (page - 1) * limit
+        paginated_data = data.iloc[skip: skip + limit]
+        data_list = paginated_data.to_dict(orient="records")
+
+        response = {
+            "total_items": total_items,
+            "total_pages": total_pages,
+            "skip": skip,
+            "limit": limit,
+            "data": data_list,
+        }
+        return JSONResponse(content=response)
+    except (DataSourceNotFoundException, DataSourceEmptyOrCorruptException, PageOutOfRangeException) as e:
+        raise e
     except Exception as e:
-        print(f"An error occurred: {e}")
-    # print('prompt', prompt_text)
-    timeout = Timeout(55.0, connect=60.0)
-    async with AsyncClient(timeout=timeout) as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {os.getenv('OPENAI')}"
-            },
-            json={
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a boxing enthusiast who gives a very detailed and technical breakdown of boxing matches, inserting historial references from prior fights."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt_text
-                    },
-                ],
-                "temperature": 0,
-                "max_tokens": 2048,
-                "top_p": 1,
-                "frequency_penalty": 0,
-                "presence_penalty": 0,
-            }
-        )
-        if response.is_error:
-            raise HTTPException(status_code=response.status_code,
-                                detail="Error from OpenAI API")
-
-        # Process the response and return the result
-        result = response.json()
-        if "choices" in result and len(result["choices"]) > 0:
-            last_message_content = result["choices"][-1]["message"]["content"]
-            print('last', last_message_content)
-            return {"response": last_message_content}
-
-    #     # Handle the case where there is no valid response
-    #     return {"response": "No response from the AI model."}
-
-
-@app.get("/fightstoday", include_in_schema=False)
-def get_random_fighters():
-    unique_divisions = set(data['division'].unique().tolist())
-    selected_divisions = set()
-    while len(selected_divisions) < 3:
-        division = random.choice(list(unique_divisions))
-        division_data = data[data['division'] == division]
-        # Check if the division has at least two fighters
-        if len(division_data) >= 2:
-            selected_divisions.add(division)
-            # Remove the selected division from the unique_divisions set to ensure uniqueness
-            unique_divisions.remove(division)
-
-    selected_fighters = []
-    for division in selected_divisions:
-        division_data = data[data['division'] == division]
-        random_fighter = division_data.sample().to_dict(orient='records')[0]
-        selected_fighters.append(random_fighter)
-        partner_data = division_data[
-            (division_data['sex'] == random_fighter['sex']) &
-            # Ensure it's a different fighter
-            (division_data['id'] != random_fighter['id'])
-        ]
-        # If found, select a random fighter from the filtered data
-        partner_fighter = partner_data.sample().to_dict(orient='records')[0]
-        selected_fighters.append(partner_fighter)
-
-    return selected_fighters
+        raise HTTPException(status_code=500, detail=f"An error occurred while fetching the data: {str(e)}")
 
 
 @app.post(
@@ -276,9 +188,7 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
         "wins": int(fighter_data['wins'].iloc[0]) if not pd.isna(fighter_data['wins'].iloc[0]) else "Missing Data",
         "draws": int(fighter_data['draws'].iloc[0]) if not pd.isna(fighter_data['draws'].iloc[0]) else "Missing Data",
         "losses": int(fighter_data['losses'].iloc[0]) if not pd.isna(fighter_data['losses'].iloc[0]) else "Missing Data",
-        # Convert to string to ensure JSON compatibility
         "location": str(fighter_data['location'].iloc[0]),
-        # Convert to string to ensure JSON compatibility
         "division": str(fighter_data['division'].iloc[0]),
         "Average Weight": float(fighter_data['average_weight'].iloc[0]) if not pd.isna(fighter_data['average_weight'].iloc[0]) else "Missing Data",
         "Opponent Average Weight": float(fighter_data['average_opponent_weight'].iloc[0]) if not pd.isna(fighter_data['average_opponent_weight'].iloc[0]) else "Missing Data",
@@ -295,9 +205,7 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
     additional_fighter_data = additional_data[additional_data['name'].str.contains(
         fighter.name, case=False, na=False)]
 
-    # Check if the fighter is found in the additional dataset
     if not additional_fighter_data.empty:
-        # Extract additional data and append to the existing stats dictionary
         stats["BoxRec Link"] = additional_fighter_data['players_links'].iloc[0]
 
     # Read punching stats CSV
@@ -333,139 +241,3 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
 
 def format_percent(value):
     return f"{float(value):.2f}%" if not pd.isna(value) else "Missing Data"
-
-
-@app.post("/get_fighter_details", include_in_schema=False)
-async def get_fighter_details(fighter_names: FighterNames):
-    data = pd.read_csv(
-        "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv")
-    data = data.where(pd.notnull(data), None)
-    fighter_details = {}
-
-    for fighter in [fighter_names.fighter1, fighter_names.fighter2]:
-        fighter_row = data.loc[data['name'].str.contains(
-            fighter, case=False, na=False)]
-        if fighter_row.empty:
-            raise HTTPException(
-                status_code=404, detail=f"Fighter named {fighter} not found.")
-        fighter_detail = {
-            'bouts_fought': fighter_row.iloc[0]['bouts_fought'],
-            'wins': f"Wins: {fighter_row.iloc[0]['wins']}",
-            'win_by_knockout': fighter_row.iloc[0]['win by knockout'],
-            'losses': f"Losses: {fighter_row.iloc[0]['losses']}",
-            'average_weight': f"Average Weight: {fighter_row.iloc[0]['average_weight']}"
-        }
-        fighter_details[fighter] = fighter_detail
-    for fighter, details in fighter_details.items():
-        fighter_details[fighter] = {
-            k: clean_nan_values(v) for k, v in details.items()}
-
-    json_compliant_data = jsonable_encoder(fighter_details)
-    return JSONResponse(content=json_compliant_data)
-
-
-def clean_nan_values(value):
-    if isinstance(value, float) and np.isnan(value):
-        return None
-    elif value == 'nan':
-        return None
-    return value
-
-
-@app.post("/predict", include_in_schema=False)
-async def predict_fighter(fighter_name: FighterNames):
-    print('tru')
-    print('fighters', fighter_name)
-    data = pd.read_csv(
-        "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv", low_memory=False)
-    second_data = pd.read_csv(
-        "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/visualsfull.csv", low_memory=False
-    )
-    data.fillna(0, inplace=True)
-    second_data.fillna(0, inplace=True)
-
-    fighter_stats = {}
-    model_loaded = False
-    try:
-        random_forest_model = load('randomForest.pkl')
-        # print("Class labels:", random_forest_model.classes_)
-
-        model_loaded = True
-    except FileNotFoundError as e:
-        print(f"Model file not found: {e}")
-        model_loaded = False
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        model_loaded = False
-    if not model_loaded:
-        raise HTTPException(
-            status_code=503, detail="Model could not be loaded.")
-
-    predictions = {}
-    for current_fighter in [fighter_name.fighter1, fighter_name.fighter2]:
-        fighter_row = data.loc[data['name'].str.contains(
-            current_fighter, case=False, na=False)]
-        if fighter_row.empty:
-            raise HTTPException(
-                status_code=404, detail=f"Fighter named {current_fighter} not found.")
-        win_ko = fighter_row.iloc[0]['win by knockout'] + \
-            fighter_row.iloc[0]['win by technical knockout']
-        win_other = fighter_row.iloc[0]['win by split decision'] + \
-            fighter_row.iloc[0]['win by unanimous decision']
-        ko_ratio = win_ko / (fighter_row.iloc[0]['wins']) if (
-            fighter_row.iloc[0]['wins']) > 0 else 0
-
-        opponent_name = fighter_name.fighter2 if current_fighter == fighter_name.fighter1 else fighter_name.fighter1
-        opponent_rows = second_data.loc[second_data['opposition'].str.contains(
-            opponent_name, case=False, na=False)]
-
-        fighter_ko_data = second_data.loc[second_data['name'].str.contains(
-            current_fighter, case=False, na=False)]
-        fighter_ko_ratio = fighter_ko_data['KnockedOut ratio'].dropna(
-        ).mean() if not fighter_ko_data.empty else 0
-
-        fighter_data_row = data.loc[data['name'].str.contains(
-            current_fighter, case=False, na=False)]
-        fighter_draws = fighter_data_row['draws'].iloc[0] if not fighter_data_row.empty else 0
-
-        fighter_losses_ko = second_data.loc[second_data['name'].str.contains(
-            current_fighter, case=False, na=False), 'Loss KO']
-        loss_ko_average = fighter_losses_ko.mean() if not fighter_losses_ko.empty else 0
-
-        average_opp_last6 = opponent_rows['opp_last6'].dropna().mean(
-        ) if not opponent_rows.empty else 0
-
-        opp_stats = second_data[second_data['opposition'].str.contains(
-            opponent_name, case=False, na=False)]
-        mean_values = {
-            'opp_winOther': opp_stats['opp_winOther'].dropna().mean(),
-            'opp_KO ratio': opp_stats['opp_KO ratio'].dropna().mean(),
-            'opp_winKO': opp_stats['opp_winKO'].dropna().mean(),
-            'opp_loss': opp_stats['opp_loss'].dropna().mean(),
-            'opp_lossOther': opp_stats['opp_lossOther'].dropna().mean(),
-            'opp_win': opp_stats['opp_win'].dropna().mean(),
-            'opp_lossKO': opp_stats['opp_lossKO'].dropna().mean(),
-        }
-
-        fighter_stats[current_fighter] = {
-            'Win KO': win_ko,
-            'Loss Other': fighter_row.iloc[0]['losses'],
-            'Win Other': win_other,
-            'KO ratio': ko_ratio,
-            'opp_last6': average_opp_last6,
-            "KnockedOut ratio": fighter_ko_ratio,
-            "Draw": fighter_draws,
-            "Loss KO": loss_ko_average
-        }
-        fighter_stats[current_fighter].update(mean_values)
-        features_df = pd.DataFrame([fighter_stats[current_fighter]])
-
-        column_order = ['opp_last6', 'opp_KO ratio', 'Win KO', 'opp_winOther', 'Loss Other', 'Loss KO',
-                        'Win Other', 'KO ratio', 'opp_winOther', 'KnockedOut ratio', 'opp_winKO', 'opp_KO ratio', 'opp_loss',
-                        'opp_lossOther', 'opp_win', 'Draw', 'opp_lossKO']
-        features_df = features_df[column_order]
-        features_df.fillna(0, inplace=True)
-        prediction = random_forest_model.predict_proba(features_df)
-        prediction_mapped = dict(
-            zip(random_forest_model.classes_, prediction[0]))
-        return prediction_mapped
