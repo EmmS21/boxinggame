@@ -133,19 +133,27 @@ app.exception_handler(PageOutOfRangeException)(page_out_of_range_exception_handl
 )
 async def get_all_fighter_stats(page: int = Query(default=1, ge=1), limit: int = Query(default=10, ge=1)):
     try:
+        logger.debug(f"Fetching data for page {page} with limit {limit}")
         try:
             data_url = "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv"
             data = pd.read_csv(data_url)
+            logger.debug("Data fetched successfully from the CSV.")
         except FileNotFoundError:
+            logger.error("Data source not found.")
             raise DataSourceNotFoundException("Data source not found.")
         except pd.errors.EmptyDataError:
+            logger.error("Data source is empty or corrupt.")
             raise DataSourceEmptyOrCorruptException("Data source is empty or corrupt.")
         
         data.replace([np.nan, np.inf, -np.inf], None, inplace=True)
+        logger.debug("NaN, inf, and -inf values replaced with None.")
+
         total_items = len(data)
         total_pages = (total_items // limit) + (1 if total_items % limit > 0 else 0)
+        logger.debug(f"Total items: {total_items}, Total pages: {total_pages}")
 
         if page > total_pages:
+            logger.error("Page number out of range.")
             raise PageOutOfRangeException("Page number out of range.")
                 
         skip = (page - 1) * limit
@@ -159,6 +167,7 @@ async def get_all_fighter_stats(page: int = Query(default=1, ge=1), limit: int =
             "limit": limit,
             "data": data_list,
         }
+        logger.debug(f"Response prepared: {response}")
         return JSONResponse(content=response)
     except (DataSourceNotFoundException, DataSourceEmptyOrCorruptException, PageOutOfRangeException) as e:
         raise e
@@ -176,15 +185,17 @@ async def get_all_fighter_stats(page: int = Query(default=1, ge=1), limit: int =
     tags=["Fighter Stats"]
 )
 async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "Tyson Fury"})):
+    logger.info(f"Request received for fighter stats: {fighter['name']}")
+    logger.info("Loading fighter data from CSV...")
     data = pd.read_csv(
         "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv")
     fighter_data = data[data['name'].str.contains(
         fighter.name, case=False, na=False)]
     # Check if the fighter is found in the dataset
     if fighter_data.empty:
+        logger.warning(f"No data found for fighter named {fighter['name']}.")
         raise HTTPException(
             status_code=404, detail=f"No data found for fighter named {fighter.name}. It's possible that the fighter does not exist or there is no available data.")
-    # Extract boxer stats
     stats = {
         "Data As Of": "November 2019",
         "name": fighter_data['name'].iloc[0],
