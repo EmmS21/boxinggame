@@ -126,7 +126,61 @@ app.exception_handler(PageOutOfRangeException)(page_out_of_range_exception_handl
 @app.get(
     "/get_all_fighter_stats",
     include_in_schema=True,
-    responses={200: {"description": "Return all fighters' stats"}},
+responses={
+        200: {
+            "description": "Return all fighters' stats",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "total_items": 100,
+                        "total_pages": 10,
+                        "skip": 0,
+                        "limit": 10,
+                        "data": [
+                            {
+                                "name": "Tyson Fury",
+                                "wins": 30,
+                                # Additional fighter stats...
+                            }
+                            # Additional fighters...
+                        ],
+                    }
+                }
+            }
+        },
+        404: {
+            "description": "Data source not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Data source not found."}
+                }
+            }
+        },
+        422: {
+            "description": "Data source is empty or corrupt",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Data source is empty or corrupt."}
+                }
+            }
+        },
+        400: {
+            "description": "Page number out of range",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Page number out of range."}
+                }
+            }
+        },
+        500: {
+            "description": "Internal Server Error",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "An error occurred while fetching the data."}
+                }
+            }
+        }
+    },    
     description="Return all boxer stats as paginated results",
     summary="Get All Boxer Stats",
     response_model=list, 
