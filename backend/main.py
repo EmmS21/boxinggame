@@ -29,6 +29,7 @@ from exceptions.exception_handlers import (
     page_out_of_range_exception_handler,
 )
 import logging
+import math
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("uvicorn")
@@ -249,6 +250,14 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
         "Average Power punches received per fight": float(punching_stats_fighter['Avg Power punches landed against'].iloc[0]) if not pd.isna(punching_stats_fighter['Avg Power punches landed against'].iloc[0]) else "Missing Data",
         "Average Total punches received per fight": float(punching_stats_fighter['Avg Total punches landed against'].iloc[0]) if not pd.isna(punching_stats_fighter['Avg Total punches landed against'].iloc[0]) else "Missing Data",
     }
+
+    for key, value in stats.items():
+        if isinstance(value, float) and not math.isfinite(value):
+            logger.error(f"Non-compliant float value detected: {key}: {value}")
+            # Optionally, adjust the value to be compliant or handle the error
+            stats[key] = None  # Adjust non-compliant floats to None or an appropriate value
+
+    logger.debug(f"Final stats prepared for return: {stats}")
 
     return stats
 
