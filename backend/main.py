@@ -185,8 +185,6 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
         raise HTTPException(
             status_code=404, detail=f"No data found for fighter named {fighter.name}. It's possible that the fighter does not exist or there is no available data.")
     # Extract boxer stats
-        logger.debug("Received request for get_fighter_stats")
-
     stats = {
         "Data As Of": "November 2019",
         "name": fighter_data['name'].iloc[0],
@@ -252,5 +250,4 @@ def format_percent(value):
             return "Invalid value"
         return f"{val:.2f}%"
     except (ValueError, TypeError):
-        logger.error(f"Error processing value '{value}': {e}")
         return "Missing Data"
