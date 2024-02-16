@@ -28,6 +28,10 @@ from exceptions.exception_handlers import (
     data_source_empty_or_corrupt_exception_handler,
     page_out_of_range_exception_handler,
 )
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("uvicorn")
 
 
 load_dotenv()
@@ -176,12 +180,13 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
         "https://raw.githubusercontent.com/EmmS21/SpringboardCapstoneBoxingPredictionWebApp/master/boxingdata/topten.csv")
     fighter_data = data[data['name'].str.contains(
         fighter.name, case=False, na=False)]
-
     # Check if the fighter is found in the dataset
     if fighter_data.empty:
         raise HTTPException(
             status_code=404, detail=f"No data found for fighter named {fighter.name}. It's possible that the fighter does not exist or there is no available data.")
     # Extract boxer stats
+        logger.debug("Received request for get_fighter_stats")
+
     stats = {
         "Data As Of": "November 2019",
         "name": fighter_data['name'].iloc[0],
@@ -242,8 +247,10 @@ async def get_fighter_stats(fighter: FighterName = Body(..., example={"name": "T
 def format_percent(value):
     try:
         val = float(value)
-        if val == float('inf') or val == float('-inf') or val != val:  # Checks for 'inf', '-inf', 'NaN'
+        if val == float('inf') or val == float('-inf') or val != val: 
+            logger.debug(f"Non-compliant float value encountered: {val}")
             return "Invalid value"
         return f"{val:.2f}%"
     except (ValueError, TypeError):
+        logger.error(f"Error processing value '{value}': {e}")
         return "Missing Data"
